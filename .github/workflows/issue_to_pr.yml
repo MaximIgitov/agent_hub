@@ -1,0 +1,22 @@
+name: Issue to PR
+
+on:
+  issues:
+    types: [opened, labeled]
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger backend run
+        env:
+          AGENT_HUB_URL: ${{ secrets.AGENT_HUB_URL }}
+          MODEL: ${{ secrets.AGENT_HUB_MODEL }}
+        run: |
+          if [ -z "$AGENT_HUB_URL" ]; then
+            echo "AGENT_HUB_URL secret not set"
+            exit 1
+          fi
+          curl -sS -X POST "$AGENT_HUB_URL/v1/runs/issue" \
+            -H "Content-Type: application/json" \
+            -d "{\"repo_url\":\"${{ github.event.repository.html_url }}\",\"issue_number\":${{ github.event.issue.number }},\"model\":\"${MODEL:-google/gemini-3-flash-preview}\",\"max_iters\":5}"
