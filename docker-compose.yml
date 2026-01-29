@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    environment:
+      - AGENT_HUB_DATABASE_URL=postgresql+asyncpg://agent:agent@db:5432/agent_hub
+      - AGENT_HUB_REDIS_URL=redis://redis:6379/0
+      - AGENT_HUB_OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - AGENT_HUB_GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build: .
+    command: ["python", "-m", "arq", "main.WorkerSettings"]
+    environment:
+      - AGENT_HUB_DATABASE_URL=postgresql+asyncpg://agent:agent@db:5432/agent_hub
+      - AGENT_HUB_REDIS_URL=redis://redis:6379/0
+      - AGENT_HUB_OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    depends_on:
+      - db
+      - redis
+
+  ui:
+    build: .
+    command: ["streamlit", "run", "src/ui_streamlit.py", "--server.port", "8501", "--server.address", "0.0.0.0"]
+    environment:
+      - AGENT_HUB_UI_API_URL=http://api:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+
+  db:
+    image: postgres:16
+    environment:
+      - POSTGRES_USER=agent
+      - POSTGRES_PASSWORD=agent
+      - POSTGRES_DB=agent_hub
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
