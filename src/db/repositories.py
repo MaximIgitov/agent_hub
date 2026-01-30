@@ -25,6 +25,17 @@ async def list_runs(session: AsyncSession) -> list[Run]:
     return list(result.scalars().all())
 
 
+async def get_latest_run_by_issue(
+    session: AsyncSession, repo_url: str, issue_number: int
+) -> Optional[Run]:
+    result = await session.execute(
+        select(Run)
+        .where(Run.repo_url == repo_url, Run.issue_number == issue_number)
+        .order_by(Run.created_at.desc())
+    )
+    return result.scalars().first()
+
+
 async def add_log(session: AsyncSession, log: EventLog) -> EventLog:
     session.add(log)
     await session.commit()

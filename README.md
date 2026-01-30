@@ -16,13 +16,17 @@ API is available at `http://localhost:8000/docs`. Streamlit UI runs at
 
 Environment variables:
 
-- `AGENT_HUB__OPENROUTER_API_KEY` - OpenRouter key
-- `AGENT_HUB__OPENROUTER_MODEL` - Model name (default: `google/gemini-3-flash-preview`)
-- `AGENT_HUB__GITHUB_WEBHOOK_SECRET` - GitHub App webhook secret
-- `AGENT_HUB__DATABASE_URL` - SQLAlchemy async URL
-- `AGENT_HUB__REDIS_URL` - Redis URL
-- `AGENT_HUB__DEFAULT_MAX_ITERS` - Default max iterations
-- `AGENT_HUB__APP_BASE_URL` - Base URL for callbacks
+- `AGENT_HUB_OPENROUTER_API_KEY` - OpenRouter key
+- `AGENT_HUB_OPENROUTER_MODEL` - Default model (e.g. `google/gemini-3-flash-preview`)
+- `AGENT_HUB_AVAILABLE_MODELS` - Comma-separated model list for UI selection
+- `AGENT_HUB_GITHUB_WEBHOOK_SECRET` - GitHub App webhook secret
+- `AGENT_HUB_GITHUB_TOKEN` - GitHub token for Code Agent operations
+- `AGENT_HUB_DATABASE_URL` - SQLAlchemy async URL
+- `AGENT_HUB_REDIS_URL` - Redis URL
+- `AGENT_HUB_DEFAULT_MAX_ITERS` - Default max iterations
+- `AGENT_HUB_APP_BASE_URL` - Base URL for callbacks
+- `AGENT_HUB_UI_BASE_URL` - Base URL for UI links
+- `AGENT_HUB_REVIEW_MODEL` - Reviewer model override (Actions)
 
 ## GitHub App setup (summary)
 
@@ -37,6 +41,12 @@ Environment variables:
 Add workflows from `.github/workflows/` to the target repo. The issue workflow can
 notify the backend or run the CLI container. The PR workflow runs CI and uploads
 artifacts for review. Review happens only after CI completes.
+
+## Reports
+
+- API run report: `GET /v1/runs/{run_id}/report`
+- Run logs: `GET /v1/runs/{run_id}/logs`
+- CI/Review artifacts: `report.md` and `verdict.json` in GitHub Actions
 
 ## Sample issue pack
 

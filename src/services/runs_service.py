@@ -5,8 +5,8 @@ from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import EventLog, Run
-from db.repositories import add_log, create_run, list_runs
-from internal.schemas.runs import RunCreateRequest
+from db.repositories import add_log, create_run, get_latest_run_by_issue, list_runs
+from internal.schemas.runs import RunCreateRequest, RunRetryRequest
 
 
 class RunsService:
@@ -39,3 +39,10 @@ class RunsService:
 
     async def list_runs(self, session: AsyncSession) -> list[Run]:
         return await list_runs(session)
+
+    async def get_latest_by_issue(
+        self, session: AsyncSession, request: RunRetryRequest
+    ) -> Run | None:
+        return await get_latest_run_by_issue(
+            session, request.repo_url, request.issue_number
+        )

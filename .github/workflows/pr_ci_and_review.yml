@@ -20,11 +20,15 @@ jobs:
         run: make lint
       - name: Test
         run: make test
-      - name: Build review artifacts
+      - name: Run reviewer
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AGENT_HUB_OPENROUTER_API_KEY: ${{ secrets.AGENT_HUB_OPENROUTER_API_KEY }}
+          AGENT_HUB_REVIEW_MODEL: ${{ secrets.AGENT_HUB_REVIEW_MODEL }}
+          AGENT_HUB_URL: ${{ secrets.AGENT_HUB_URL }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          echo "# CI Summary" > report.md
-          echo "- status: success" >> report.md
-          echo "{\"verdict\":\"comment\",\"reason\":\"awaiting reviewer\"}" > verdict.json
+          python -m internal.reviewer_runner
       - name: Upload report
         uses: actions/upload-artifact@v4
         with:

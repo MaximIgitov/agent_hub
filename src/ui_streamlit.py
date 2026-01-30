@@ -4,6 +4,7 @@ import os
 
 import streamlit as st
 
+from config import settings
 from services.api_client import AgentHubApiClient
 
 API_URL = os.getenv("AGENT_HUB_UI_API_URL", "http://localhost:8000")
@@ -11,6 +12,41 @@ API_URL = os.getenv("AGENT_HUB_UI_API_URL", "http://localhost:8000")
 
 st.set_page_config(page_title="Agent Hub", layout="wide")
 st.title("Agent Hub")
+
+models = settings.available_models or [settings.openrouter_model]
+default_model_index = 0
+if settings.openrouter_model in models:
+    default_model_index = models.index(settings.openrouter_model)
+
+
+with st.sidebar:
+    st.subheader("Create run")
+    repo_url = st.text_input("Repo URL", value="")
+    issue_number = st.number_input("Issue number", min_value=1, step=1, value=1)
+    model = st.selectbox("Model", options=models, index=default_model_index)
+    max_iters = st.number_input(
+        "Max iterations",
+        min_value=1,
+        step=1,
+        value=settings.default_max_iters,
+    )
+    if st.button("Run"):
+        if not repo_url.strip():
+            st.warning("Repo URL is required.")
+        else:
+            try:
+                client = AgentHubApiClient(base_url=API_URL)
+                run = client.create_run(
+                    {
+                        "repo_url": repo_url.strip(),
+                        "issue_number": int(issue_number),
+                        "model": model,
+                        "max_iters": int(max_iters),
+                    }
+                )
+                st.success(f"Run created: {run.get('run_id')}")
+            except Exception as exc:
+                st.error(f"Failed to create run: {exc}")
 
 
 def fetch_runs() -> list[dict]:
