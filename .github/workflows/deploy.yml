@@ -29,6 +29,7 @@ jobs:
           cd "${{ secrets.DEPLOY_PATH }}"
           git fetch --all --prune
           git reset --hard origin/master
+          docker-compose down
           docker-compose up -d --build
           docker-compose ps
           EOF
