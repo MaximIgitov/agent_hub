@@ -35,7 +35,7 @@ def apply_diff(repo_path: Path, diff: str) -> bool:
     if not diff.strip():
         return False
     result = subprocess.run(
-        ["git", "apply", "-"],
+        ["git", "apply", "--3way", "-"],
         input=diff.encode("utf-8"),
         cwd=str(repo_path),
         stdout=subprocess.PIPE,

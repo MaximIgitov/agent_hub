@@ -4,6 +4,7 @@ from uuid import uuid4
 from pathlib import Path
 import tempfile
 from urllib.parse import urlparse
+import subprocess
 
 from arq import ArqRedis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -134,7 +135,18 @@ async def _run_issue(session: AsyncSession, run_id: str) -> None:
         return
 
     if not apply_diff(repo_path, diff):
-        await fail_run(session, run, orchestrator, "Failed to apply diff")
+        check = subprocess.run(
+            ["git", "apply", "--check", "-"],
+            input=diff.encode("utf-8"),
+            cwd=str(repo_path),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        detail = check.stderr.decode("utf-8").strip() or "git apply failed"
+        await fail_run(
+            session, run, orchestrator, "Failed to apply diff", {"error": detail}
+        )
         return
 
     commit_all(repo_path, f"Agent: issue #{run.issue_number}")
