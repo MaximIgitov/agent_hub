@@ -98,28 +98,52 @@ async def _run_issue(session: AsyncSession, run_id: str) -> None:
     create_branch(repo_path, branch)
 
     files = list_files(repo_path)
-    patch_prompt = build_patch_prompt(issue, plan, files)
-    await log_event(
-        session,
-        run.id,
-        "Patch prompt built",
-        "patch_prompt",
-        {"prompt": patch_prompt},
-    )
-    patch_response = await llm.complete(patch_prompt, correlation_id=run.id)
-    diff = extract_diff(patch_response.content)
-    if not diff.strip():
-        await fail_run(session, run, orchestrator, "Empty diff from model")
+    diff = ""
+    patch_hash = ""
+    last_error = ""
+    for attempt in range(2):
+        patch_prompt = build_patch_prompt(issue, plan, files, last_error)
+        await log_event(
+            session,
+            run.id,
+            "Patch prompt built",
+            "patch_prompt",
+            {"prompt": patch_prompt, "attempt": attempt + 1},
+        )
+        patch_response = await llm.complete(patch_prompt, correlation_id=run.id)
+        diff = extract_diff(patch_response.content)
+        if not diff.strip():
+            last_error = "empty diff output"
+            await log_event(
+                session,
+                run.id,
+                "Patch invalid",
+                "patch_invalid",
+                {"reason": last_error},
+            )
+            continue
+        if "@@" not in diff:
+            last_error = "missing unified diff hunks (@@)"
+            await log_event(
+                session,
+                run.id,
+                "Patch invalid",
+                "patch_invalid",
+                {"reason": last_error, "diff": diff},
+            )
+            continue
+        patch_hash = hash_diff(diff)
+        await log_event(
+            session,
+            run.id,
+            "Patch generated",
+            "patch_generated",
+            {"diff": diff, "patch_hash": patch_hash, "attempt": attempt + 1},
+        )
+        break
+    if not diff.strip() or "@@" not in diff:
+        await fail_run(session, run, orchestrator, "Invalid diff from model")
         return
-
-    patch_hash = hash_diff(diff)
-    await log_event(
-        session,
-        run.id,
-        "Patch generated",
-        "patch_generated",
-        {"diff": diff, "patch_hash": patch_hash},
-    )
 
     previous_hash = iterations[-1].patch_hash if iterations else None
     noop_result = check_noop(diff, previous_hash)
@@ -144,9 +168,14 @@ async def _run_issue(session: AsyncSession, run_id: str) -> None:
             check=False,
         )
         detail = check.stderr.decode("utf-8").strip() or "git apply failed"
-        await fail_run(
-            session, run, orchestrator, "Failed to apply diff", {"error": detail}
+        await log_event(
+            session,
+            run.id,
+            "Patch apply failed",
+            "patch_apply_failed",
+            {"error": detail},
         )
+        await fail_run(session, run, orchestrator, "Failed to apply diff")
         return
 
     commit_all(repo_path, f"Agent: issue #{run.issue_number}")
@@ -242,14 +271,22 @@ def build_planner_prompt(issue: dict) -> str:
     )
 
 
-def build_patch_prompt(issue: dict, plan: str, files: list[str]) -> str:
+def build_patch_prompt(issue: dict, plan: str, files: list[str], last_error: str) -> str:
     title = issue.get("title", "")
     body = issue.get("body", "")
     files_block = "\n".join(files[:200])
+    error_block = ""
+    if last_error:
+        error_block = (
+            "Previous patch was invalid or failed to apply.\n"
+            f"Error: {last_error}\n"
+            "Regenerate a valid unified diff with @@ hunks and correct file paths.\n\n"
+        )
     return (
         "You are a code agent. Generate a unified git diff that solves the issue.\n"
         "Output ONLY the diff. Do not include explanations or code fences.\n"
         "Make sure paths match repository files. Keep changes minimal.\n\n"
+        f"{error_block}"
         f"Issue title: {title}\n"
         f"Issue body:\n{body}\n\n"
         f"Plan:\n{plan}\n\n"
