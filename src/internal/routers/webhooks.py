@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from internal.dependencies import get_session
 from internal.schemas.runs import RunCreateRequest
+from db.models import EventLog
+from db.repositories import add_log
 from services.jobs import enqueue_run
 from services.runs_service import RunsService
 from services.webhook_service import WebhookService
@@ -38,6 +41,21 @@ async def github_webhook(
                 issue_number=issue_number,
                 model=settings.openrouter_model,
                 max_iters=settings.default_max_iters,
+            ),
+        )
+        await add_log(
+            session,
+            EventLog(
+                id=str(uuid4()),
+                run_id=run.id,
+                message=f"Webhook received: {event}:{action}",
+                kind="webhook_received",
+                payload={
+                    "event": event,
+                    "action": action,
+                    "repository": data.get("repository", {}).get("full_name", ""),
+                    "issue_number": issue_number,
+                },
             ),
         )
         redis = request.app.state.redis

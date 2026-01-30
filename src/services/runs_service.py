@@ -22,7 +22,18 @@ class RunsService:
         run = await create_run(session, run)
         await add_log(
             session,
-            EventLog(id=str(uuid4()), run_id=run.id, message="Run created"),
+            EventLog(
+                id=str(uuid4()),
+                run_id=run.id,
+                message="Run created",
+                kind="run_created",
+                payload={
+                    "repo_url": run.repo_url,
+                    "issue_number": run.issue_number,
+                    "model": run.model,
+                    "max_iterations": run.max_iterations,
+                },
+            ),
         )
         return run
 

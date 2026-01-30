@@ -18,3 +18,8 @@ class AgentHubApiClient:
         response = httpx.get(f"{self.base_url}/v1/runs", timeout=20)
         response.raise_for_status()
         return response.json()
+
+    def get_run_logs(self, run_id: str) -> dict:
+        response = httpx.get(f"{self.base_url}/v1/runs/{run_id}/logs", timeout=20)
+        response.raise_for_status()
+        return response.json()

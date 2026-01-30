@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.repositories import get_run
 from internal.dependencies import get_session
-from internal.schemas.runs import RunCreateRequest, RunLogsResponse, RunResponse
+from internal.schemas.runs import RunCreateRequest, RunLogEntry, RunLogsResponse, RunResponse
 from services.runs_service import RunsService
 from services.jobs import enqueue_run
 
@@ -73,5 +73,13 @@ async def get_run_logs(
     run = await get_run(session, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
-    logs = [log.message for log in run.logs]
+    logs = [
+        RunLogEntry(
+            message=log.message,
+            kind=log.kind,
+            payload=log.payload or {},
+            created_at=log.created_at,
+        )
+        for log in run.logs
+    ]
     return RunLogsResponse(run_id=run_id, logs=logs)
