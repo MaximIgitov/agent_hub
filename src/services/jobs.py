@@ -249,6 +249,8 @@ def extract_diff(text: str) -> str:
     lines = text.strip().splitlines()
     if not lines:
         return ""
+    if lines[0].strip() == "diff":
+        lines = lines[1:]
     if lines[0].startswith("```"):
         lines = lines[1:]
         if lines and lines[0].strip().lower() == "diff":
