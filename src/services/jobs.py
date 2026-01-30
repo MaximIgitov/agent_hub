@@ -125,6 +125,16 @@ async def _run_issue(session: AsyncSession, run_id: str) -> None:
                 {"reason": last_error},
             )
             continue
+        if "diff --git" not in diff:
+            last_error = "missing diff --git headers"
+            await log_event(
+                session,
+                run.id,
+                "Patch invalid",
+                "patch_invalid",
+                {"reason": last_error, "diff": diff},
+            )
+            continue
         if "@@" not in diff:
             last_error = "missing unified diff hunks (@@)"
             await log_event(
