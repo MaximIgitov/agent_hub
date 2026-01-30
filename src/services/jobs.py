@@ -407,7 +407,11 @@ def normalize_diff_headers(diff: str) -> str:
     while i < len(lines):
         line = lines[i]
         if line.startswith("--- "):
+            if line != "--- /dev/null" and not line.startswith("--- a/"):
+                line = "--- a/" + line.replace("--- ", "").strip()
             next_line = lines[i + 1] if i + 1 < len(lines) else ""
+            if next_line.startswith("+++ ") and next_line != "+++ /dev/null" and not next_line.startswith("+++ b/"):
+                next_line = "+++ b/" + next_line.replace("+++ ", "").strip()
             if next_line.startswith("+++ "):
                 old_path = line.replace("--- ", "").strip()
                 new_path = next_line.replace("+++ ", "").strip()
@@ -417,5 +421,9 @@ def normalize_diff_headers(diff: str) -> str:
                     path = old_path.replace("a/", "")
                 normalized.append(f"diff --git a/{path} b/{path}")
         normalized.append(line)
+        if next_line.startswith("+++ "):
+            normalized.append(next_line)
+            i += 2
+            continue
         i += 1
     return "\n".join(normalized)
