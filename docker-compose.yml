@@ -6,8 +6,9 @@ services:
     environment:
       - AGENT_HUB_DATABASE_URL=postgresql+asyncpg://agent:agent@db:5432/agent_hub
       - AGENT_HUB_REDIS_URL=redis://redis:6379/0
-      - AGENT_HUB_OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - AGENT_HUB_GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      - AGENT_HUB_OPENROUTER_API_KEY=${AGENT_HUB_OPENROUTER_API_KEY}
+      - AGENT_HUB_GITHUB_WEBHOOK_SECRET=${AGENT_HUB_GITHUB_WEBHOOK_SECRET}
+      - AGENT_HUB_GITHUB_TOKEN=${AGENT_HUB_GITHUB_TOKEN}
     ports:
       - "8000:8000"
     depends_on:
@@ -20,7 +21,8 @@ services:
     environment:
       - AGENT_HUB_DATABASE_URL=postgresql+asyncpg://agent:agent@db:5432/agent_hub
       - AGENT_HUB_REDIS_URL=redis://redis:6379/0
-      - AGENT_HUB_OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - AGENT_HUB_OPENROUTER_API_KEY=${AGENT_HUB_OPENROUTER_API_KEY}
+      - AGENT_HUB_GITHUB_TOKEN=${AGENT_HUB_GITHUB_TOKEN}
     depends_on:
       - db
       - redis
