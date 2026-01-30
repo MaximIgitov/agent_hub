@@ -114,7 +114,7 @@ async def _run_issue(session: AsyncSession, run_id: str) -> None:
             {"prompt": patch_prompt, "attempt": attempt + 1},
         )
         patch_response = await llm.complete(patch_prompt, correlation_id=run.id)
-        diff = extract_diff(patch_response.content)
+        diff = normalize_diff_headers(extract_diff(patch_response.content))
         if not diff.strip():
             last_error = "empty diff output"
             await log_event(
@@ -396,3 +396,26 @@ def read_file_snippets(repo_path: Path, paths: list[str]) -> str:
         sample = "\n".join(lines[:200])
         snippets.append(f"## {rel}\n{sample}")
     return "\n\n".join(snippets)
+
+
+def normalize_diff_headers(diff: str) -> str:
+    if "diff --git" in diff:
+        return diff
+    lines = diff.splitlines()
+    normalized = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith("--- "):
+            next_line = lines[i + 1] if i + 1 < len(lines) else ""
+            if next_line.startswith("+++ "):
+                old_path = line.replace("--- ", "").strip()
+                new_path = next_line.replace("+++ ", "").strip()
+                if old_path == "/dev/null":
+                    path = new_path.replace("b/", "")
+                else:
+                    path = old_path.replace("a/", "")
+                normalized.append(f"diff --git a/{path} b/{path}")
+        normalized.append(line)
+        i += 1
+    return "\n".join(normalized)
