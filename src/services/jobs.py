@@ -19,7 +19,7 @@ from llm.openrouter import OpenRouterClient
 from services.orchestrator import Orchestrator
 from tools.guardrails import check_noop, check_scope
 from tools.diff_ops import hash_diff, is_noop
-from tools.git_ops import apply_diff, clone_repo, commit_all, create_branch, list_files, push_branch
+from tools.git_ops import apply_diff, clone_repo, commit_all, create_branch, list_files, push_branch, run_git
 
 
 async def run_issue_job(ctx: dict, run_id: str) -> None:
@@ -98,11 +98,14 @@ async def _run_issue(session: AsyncSession, run_id: str) -> None:
     create_branch(repo_path, branch)
 
     files = list_files(repo_path)
+    keywords = extract_keywords(f"{issue.get('title','')} {issue.get('body','')}")
+    relevant_files = find_relevant_files(repo_path, keywords)
+    snippets = read_file_snippets(repo_path, relevant_files)
     diff = ""
     patch_hash = ""
     last_error = ""
     for attempt in range(2):
-        patch_prompt = build_patch_prompt(issue, plan, files, last_error)
+        patch_prompt = build_patch_prompt(issue, plan, files, snippets, last_error)
         await log_event(
             session,
             run.id,
@@ -271,7 +274,9 @@ def build_planner_prompt(issue: dict) -> str:
     )
 
 
-def build_patch_prompt(issue: dict, plan: str, files: list[str], last_error: str) -> str:
+def build_patch_prompt(
+    issue: dict, plan: str, files: list[str], snippets: str, last_error: str
+) -> str:
     title = issue.get("title", "")
     body = issue.get("body", "")
     files_block = "\n".join(files[:200])
@@ -290,6 +295,7 @@ def build_patch_prompt(issue: dict, plan: str, files: list[str], last_error: str
         f"Issue title: {title}\n"
         f"Issue body:\n{body}\n\n"
         f"Plan:\n{plan}\n\n"
+        f"Relevant file snippets:\n{snippets}\n\n"
         f"Repository files (top 200):\n{files_block}\n"
     )
 
@@ -339,3 +345,44 @@ async def fail_run(
         "failed",
         payload or {"reason": reason},
     )
+
+
+def extract_keywords(text: str) -> list[str]:
+    lower = text.lower()
+    keywords = []
+    if "health" in lower:
+        keywords.extend(["health", "healthz"])
+    if "cors" in lower:
+        keywords.append("cors")
+    if "version" in lower:
+        keywords.append("version")
+    if "request id" in lower or "correlation" in lower:
+        keywords.append("request-id")
+    return keywords
+
+
+def find_relevant_files(repo_path: Path, keywords: list[str]) -> list[str]:
+    files: list[str] = []
+    for keyword in keywords:
+        result = run_git(repo_path, ["grep", "-l", "-i", keyword])
+        if result.returncode != 0:
+            continue
+        for line in result.stdout.decode("utf-8").splitlines():
+            if line not in files:
+                files.append(line)
+    return files[:8]
+
+
+def read_file_snippets(repo_path: Path, paths: list[str]) -> str:
+    snippets = []
+    for rel in paths:
+        full = repo_path / rel
+        if not full.exists():
+            continue
+        try:
+            lines = full.read_text(encoding="utf-8").splitlines()
+        except Exception:
+            continue
+        sample = "\n".join(lines[:200])
+        snippets.append(f"## {rel}\n{sample}")
+    return "\n\n".join(snippets)
