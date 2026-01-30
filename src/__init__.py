@@ -1,1 +1,0 @@
-# Agent Hub core
